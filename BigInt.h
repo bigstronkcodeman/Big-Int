@@ -74,10 +74,10 @@ public:
 
 // BITSET
 typedef unsigned char byte;
-const size_t BS_DEFAULT_BYTES = 8;
 
 class Bitset {
 private:
+	static const size_t BS_DEFAULT_BYTES = 8;
 	std::vector<byte> bytes;
 
 public:

@@ -19,8 +19,7 @@ int main() {
 		b1 = b1 * b1;
 	}
 
-	std::string str = b1.to_binary_string();
-	std::cout << str << "\n";
+	std::cout << b1.to_binary_string() << "\n";
 
 	return 0;
 }
