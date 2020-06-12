@@ -234,7 +234,7 @@ BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 		for (size_t j = 0; j < longer_size; ++j) {
 			ulong true_mult = ((ulong)shorter->digits[i] * longer->digits[j]) + overflow; // yes, 2^64-1 > (2^32-1)^2 + (2^32-1)
 			uint new_digit = (uint)true_mult; // gives result mod 2^32
-			overflow = true_mult >> 32; // 1 if true_mult > BASE - 1 else 0
+			overflow = true_mult >> 32; // overflow = true_mult / (2^32)
 			add_digits.push_back(new_digit);
 		}
 
