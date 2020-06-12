@@ -210,7 +210,6 @@ BigInt BigInt::add_diff_signs(const BigInt& big, const BigInt& small) {
 }
 
 // performs long multiplication (gradeschool multiplication) on two BigInts a and b 
-// O(n^2)
 BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 	bool sign = !(a.positive ^ b.positive); // just think of truth table for mult of neg and pos
 	const BigInt* longer = &a;
