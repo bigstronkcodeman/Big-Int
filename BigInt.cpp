@@ -472,9 +472,9 @@ std::string Bitset::to_string() const {
 	uint mask = 1;
 	for (size_t i = 0; i < my_num_bytes; ++i) { // for each of my bytes,
 		byte byte_copy = bytes[i];
-		for (size_t j = 0; j < 8; ++j) { // prepend '0' to string if last bit of byte_copy is 0, else prepend '1'
+		for (size_t j = 0; j < 8; ++j) { // prepend '0' to string if last bit of byte is 0, else prepend '1'
 			bit_str.insert(0, 1, (char)(ASCII_ZERO + (byte_copy & mask)));
-			byte_copy >>= 1;
+			byte_copy >>= 1; // move on to next bit in byte
 		}
 	}
 
