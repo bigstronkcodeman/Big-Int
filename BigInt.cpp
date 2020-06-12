@@ -261,7 +261,7 @@ BigInt BigInt::schonhage_strassen_mult(const BigInt& a, const BigInt& b) {
 }
 
 // returns BigInt a where a = this * right
-// todo: pick ranges in which to use different multiplication algos
+// todo: pick optimal ranges in which to use different multiplication algos
 BigInt BigInt::operator* (const BigInt& right) const {
 	switch (this->MULT_MODE) {
 	case MultType::LONG:
