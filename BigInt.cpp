@@ -222,7 +222,7 @@ BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 		std::swap(longer_size, shorter_size);
 	}
 
-	// perform multiplication algorithm
+	// begin performing the actual multiplication
 	BigInt result;
 	size_t pad_zeros = 0;
 	for (size_t i = 0; i < shorter_size; ++i) {
