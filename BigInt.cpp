@@ -471,11 +471,12 @@ std::string Bitset::to_string() const {
 	uint mask = 1;
 	for (size_t i = 0; i < my_num_bytes; ++i) { // for each of my bytes,
 		byte byte_copy = bytes[i];
-		for (size_t j = 0; j < 8; ++j) { // prepend '0' to string if last bit of byte is 0, else prepend '1'
-			bit_str.insert(0, 1, (char)(ASCII_ZERO + (byte_copy & mask)));
-			byte_copy >>= 1; // move on to next bit in byte
+		for (size_t j = 0; j < 8; ++j) { // append '0' to string if last bit of byte_copy is 0, else append '1'
+			bit_str.push_back((char)(ASCII_ZERO + (byte_copy & mask)));
+			byte_copy >>= 1;
 		}
 	}
+	std::reverse(bit_str.begin(), bit_str.end()); // string was built backwards, reverse now
 
 	// remove extraneous 0 bits from string
 	size_t zero_count = 0;
