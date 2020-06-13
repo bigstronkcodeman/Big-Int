@@ -75,6 +75,7 @@ std::string BigInt::to_string() const {
 
 // return binary string representation of BigInt
 std::string BigInt::to_binary_string() const {
+	Timer<Microseconds> t;
 	return Bitset(*this).to_string();
 }
 
@@ -85,9 +86,9 @@ std::vector<uint> BigInt::get_digits() const {
 
 // return a boolean array containing the bits of your number
 // ex: get_bits(15, false) == vector<bool>({ 1, 1, 1, 1 })  <== true
-std::vector<bool> BigInt::get_bits(uint num, bool pad_32) {
+std::vector<bool> BigInt::get_bits(uint num, bool pad_uint) {
 	std::vector<bool> res_bits;
-	res_bits.reserve(32);
+	res_bits.reserve(BITS_IN_UINT);
 
 	uint mask = 1;
 	while (num > 0) {
@@ -95,8 +96,8 @@ std::vector<bool> BigInt::get_bits(uint num, bool pad_32) {
 		num >>= 1; // shift num right 1 bit, now what was the second to last bit is last bit
 	}
 
-	if (pad_32) { // pad vector with 0s if they want 32-bit number
-		for (size_t i = res_bits.size(); i < 32; ++i) {
+	if (pad_uint) { // pad vector with 0s if they want 32-bit number
+		for (size_t i = res_bits.size(); i < BITS_IN_UINT; ++i) {
 			res_bits.push_back(0);
 		}
 	}
@@ -110,7 +111,7 @@ std::vector<bool> BigInt::get_bits(uint num, bool pad_32) {
 std::vector<bool> BigInt::get_bits() const {
 	std::vector<bool> res_bits;
 	size_t my_size = this->num_digits();
-	res_bits.reserve((ulong)32 * my_size); 
+	res_bits.reserve(BITS_IN_UINT * my_size); 
 
 	for (size_t i = 0; i < my_size; ++i) {
 		std::vector<bool> bit_block_32 = get_bits(this->digits[i], (i < my_size - 1));
@@ -138,7 +139,7 @@ BigInt BigInt::add_like_signs(const BigInt& a, const BigInt& b) {
 	while (i < a_num_digits && j < b_num_digits) { // add a's and b's digits pair-wise + carry
 		ulong true_add = (ulong)a.digits[i++] + b.digits[j++] + overflow;
 		uint new_digit = (uint)true_add; // gives result mod 2^32
-		overflow = true_add >> 32; // 1 if true_add > BASE - 1 else 0
+		overflow = true_add >> BITS_IN_UINT; // 1 if true_add > BASE - 1 else 0
 		result_digits.push_back(new_digit);
 	}
 
@@ -147,7 +148,7 @@ BigInt BigInt::add_like_signs(const BigInt& a, const BigInt& b) {
 	while (i < a_num_digits) {
 		ulong true_add = (ulong)a.digits[i++] + overflow;
 		uint new_digit = (uint)true_add; // gives result mod 2^32
-		overflow = true_add >> 32; // 1 if true_add > BASE - 1 else 0
+		overflow = true_add >> BITS_IN_UINT; // 1 if true_add > BASE - 1 else 0
 		result_digits.push_back(new_digit);
 	}
 
@@ -156,7 +157,7 @@ BigInt BigInt::add_like_signs(const BigInt& a, const BigInt& b) {
 	while (j < b_num_digits) {
 		ulong true_add = (ulong)b.digits[j++] + overflow;
 		uint new_digit = (uint)true_add; // gives result mod 2^32
-		overflow = true_add >> 32; // 1 if true_add > BASE - 1 else 0
+		overflow = true_add >> BITS_IN_UINT; // 1 if true_add > BASE - 1 else 0
 		result_digits.push_back(new_digit);
 	}
 
@@ -233,7 +234,7 @@ BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 		for (size_t j = 0; j < longer_size; ++j) {
 			ulong true_mult = ((ulong)shorter->digits[i] * longer->digits[j]) + overflow; // yes, 2^64-1 > (2^32-1)^2 + (2^32-1)
 			uint new_digit = (uint)true_mult; // gives result mod 2^32
-			overflow = true_mult >> 32; // overflow = true_mult / (2^32)
+			overflow = true_mult >> BITS_IN_UINT; // overflow = true_mult / (2^32)
 			add_digits.push_back(new_digit);
 		}
 
@@ -292,10 +293,10 @@ BigInt& BigInt::operator= (BigInt&& right) noexcept {
 // is this == right?
 bool BigInt::operator== (const BigInt& right) const {
 	size_t my_size = this->num_digits();
-	if (this->positive == right.positive) {
-		if (my_size == right.num_digits()) {
+	if (this->positive == right.positive) { // signs are the same, ok...
+		if (my_size == right.num_digits()) { // hmm, same # of digits...
 			for (size_t i = 0; i < my_size; ++i) {
-				if (digits[i] != right.digits[i]) {
+				if (digits[i] != right.digits[i]) { // nevermind, we're different numbers
 					return false;
 				}
 			}
@@ -364,6 +365,7 @@ BigInt BigInt::operator+ (const BigInt& right) const {
 		return add_like_signs(*this, right);
 	}
 
+	// diff signs
 	BigInt me(*this);
 	bool positive_save = me.positive;
 	me.positive = right.positive;
@@ -424,12 +426,12 @@ Bitset::Bitset(Bitset&& other) noexcept
 // construct Bitset from BigInt
 Bitset::Bitset(const BigInt& bi) {
 	const size_t bi_num_digits = bi.num_digits();
-	bytes = std::vector<byte>(bi_num_digits * 4); // each uint is 4 bytes
+	bytes = std::vector<byte>(bi_num_digits * UCHARS_IN_UINT); // each uint is 4 bytes
 
 	std::vector<uint> bi_digits = bi.get_digits();
-	for (size_t i = 0; i < bi_num_digits; ++i) { // for each uint in bi,
-		for (size_t j = 0; j < 4; ++j) { // for each byte in uint
-			bytes[(i * 4) + j] = Bitset::get_byte(bi_digits[i], j); // get (j+1)th byte from uint digit
+	for (size_t i = 0; i < bi_num_digits; ++i) { // for each uint digit in bi,
+		for (size_t j = 0; j < UCHARS_IN_UINT; ++j) { // for each byte in uint digit
+			bytes[(i * UCHARS_IN_UINT) + j] = Bitset::get_byte(bi_digits[i], j); // get (j+1)th byte from uint digit
 		}
 	}
 
@@ -445,10 +447,10 @@ Bitset::Bitset(const BigInt& bi) {
 // returns the (which+1)th byte from num
 byte Bitset::get_byte(uint num, const uint which) {
 	if (which < 4) { // only 4 bytes in a uint
-		uint shift = 8 * which;
+		uint shift = BITS_IN_BYTE * which;
 		uint mask = 0xFF << shift; // do we want bits 0-7, 8-15, 16-23, or 24-31?
 		num &= mask; // get rid of all bits we don't care about
-		return (num >> shift); // shift relevant bits back down to end of number to store in byte
+		return (num >> shift); // shift relevant bits back down to end of number to store in byte and return
 	}
 
 	std::cout << "Error: requested byte #" << which + 1
@@ -466,17 +468,17 @@ std::string Bitset::to_string() const {
 	const int ASCII_ZERO = 48;
 	const size_t my_num_bytes = this->num_bytes();
 	std::string bit_str = "";
-	bit_str.reserve(my_num_bytes * 8); // need one character in string for each bit in byte
+	bit_str.reserve(my_num_bytes * BITS_IN_BYTE); // need one character in string for each bit in byte
 
 	uint mask = 1;
 	for (size_t i = 0; i < my_num_bytes; ++i) { // for each of my bytes,
 		byte byte_copy = bytes[i];
-		for (size_t j = 0; j < 8; ++j) { // append '0' to string if last bit of byte_copy is 0, else append '1'
+		for (size_t j = 0; j < BITS_IN_BYTE; ++j) { // append '0' to string if last bit of byte_copy is 0, else append '1'
 			bit_str.push_back((char)(ASCII_ZERO + (byte_copy & mask)));
 			byte_copy >>= 1;
 		}
 	}
-	std::reverse(bit_str.begin(), bit_str.end()); // string was built backwards, reverse now
+	std::reverse(bit_str.begin(), bit_str.end()); // bit string was built backwards, reverse it
 
 	// remove extraneous 0 bits from string
 	size_t zero_count = 0;
@@ -488,4 +490,16 @@ std::string Bitset::to_string() const {
 	bit_str.erase(0, zero_count);
 
 	return bit_str;
+}
+
+// returns a bitset containing the binary-coded-decimal representation of *this
+Bitset Bitset::to_bcd() const {
+	const size_t my_size = this->num_bytes();
+	const ulong my_size_bits = (ulong)my_size * BITS_IN_BYTE;
+	const ulong bcd_bits_needed = (my_size_bits + 4 * ((my_size_bits / 3) + 1));
+	Bitset bcd((size_t)(bcd_bits_needed / BITS_IN_BYTE) + 1);
+
+
+
+	return bcd;
 }

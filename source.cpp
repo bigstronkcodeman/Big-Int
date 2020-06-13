@@ -2,7 +2,6 @@
 #include "BigInt.h"
 #include "Timer.h"
 
-
 std::ostream& operator<< (std::ostream& os, const std::vector<bool>& v) {
 	for (_long i = v.size() - 1; i >= 0; --i) {
 		os << v[(uint)i];
@@ -14,6 +13,7 @@ std::ostream& operator<< (std::ostream& os, const std::vector<bool>& v) {
 }
 
 int main() {
+	std::cout << (int)"" << std::endl;
 	BigInt b1(-32784189);
 	for (int i = 0; i < 13; ++i) {
 		b1 = b1 * b1;

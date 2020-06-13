@@ -6,9 +6,20 @@
 #include <limits>
 #include <algorithm>
 
+#include "Timer.h"
+
+typedef unsigned char byte;
 typedef unsigned int uint;
 typedef unsigned long long ulong;
 typedef long long _long;
+
+const size_t UINT_BYTES = sizeof(uint);
+const size_t UCHAR_BYTES = sizeof(unsigned char);
+const size_t ULONG_BYTES = sizeof(ulong);
+const size_t BITS_IN_NIBBLE = 4;
+const size_t BITS_IN_BYTE = 8;
+const size_t BITS_IN_UINT = UINT_BYTES * BITS_IN_BYTE;
+const size_t UCHARS_IN_UINT = UINT_BYTES / UCHAR_BYTES;
 
 enum class MultType {
 	LONG,
@@ -73,8 +84,6 @@ public:
 
 
 // BITSET
-typedef unsigned char byte;
-
 class Bitset {
 private:
 	static const size_t BS_DEFAULT_BYTES = 8;
@@ -91,5 +100,6 @@ public:
 
 	size_t num_bytes() const;
 	std::string to_string() const;
+	Bitset to_bcd() const;
 };
 
