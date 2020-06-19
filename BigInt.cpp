@@ -75,7 +75,6 @@ std::string BigInt::to_string() const {
 
 // return binary string representation of BigInt
 std::string BigInt::to_binary_string() const {
-	Timer<Microseconds> t;
 	return Bitset(*this).to_string();
 }
 
@@ -490,16 +489,4 @@ std::string Bitset::to_string() const {
 	bit_str.erase(0, zero_count);
 
 	return bit_str;
-}
-
-// returns a bitset containing the binary-coded-decimal representation of *this
-Bitset Bitset::to_bcd() const {
-	const size_t my_size = this->num_bytes();
-	const ulong my_size_bits = (ulong)my_size * BITS_IN_BYTE;
-	const ulong bcd_bits_needed = (my_size_bits + 4 * ((my_size_bits / 3) + 1));
-	Bitset bcd((size_t)(bcd_bits_needed / BITS_IN_BYTE) + 1);
-
-
-
-	return bcd;
 }
