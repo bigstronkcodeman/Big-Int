@@ -492,7 +492,7 @@ bool Bitset::get_bit(byte b, const uint which) {
 
 	std::cout << "Error: requested bit #" << which + 1
 		<< " of " << b << ", which does not exist\n";
-	exit(-1); return 0; // chill out compiler
+	exit(-1); return 0; // return 0 to appease compiler
 }
 
 // get number of bytes currently in Bitset
