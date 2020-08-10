@@ -75,7 +75,29 @@ std::string BigInt::to_string() const {
 
 // return binary string representation of BigInt
 std::string BigInt::to_binary_string() const {
-	return Bitset(*this).to_string();
+	std::string bin_str = "";
+	uint mask = 1 << (BITS_IN_UINT - 1);
+	bool still_leading_zeros = true;
+	for (_long i = this->num_digits() - 1; i >= 0; --i) {
+		uint digit_copy = this->digits[i];
+		for (size_t j = 0; j < BITS_IN_UINT; ++j) {
+			char bit = (char)('0' + ((digit_copy & mask) >> (BITS_IN_UINT - 1)));
+			if (!still_leading_zeros) {
+				bin_str.push_back(bit);
+			}
+			else if (bit == '1') {
+				bin_str.push_back(bit);
+				still_leading_zeros = false;
+			}
+			digit_copy <<= 1;
+		}
+	}
+	return bin_str;
+}
+
+std::string BigInt::to_bcd() const {
+
+	return "";
 }
 
 // get number of digits
@@ -221,12 +243,12 @@ BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 		std::swap(longer_size, shorter_size);
 	}
 
-	// begin performing the actual multiplication
+	// perform multiplication algorithm
 	BigInt result;
 	size_t pad_zeros = 0;
 	for (size_t i = 0; i < shorter_size; ++i) {
 		uint overflow = 0;
-		std::vector<uint> add_digits(pad_zeros); // pad successive BigInts to add with zeros
+		std::vector<uint> add_digits(pad_zeros, 0); // pad successive BigInts to add with zeros
 		add_digits.reserve(longer_size + 1 + pad_zeros);
 
 		// multiply each digit of top BigNum by single digit of bottom BigNum
@@ -292,11 +314,11 @@ BigInt& BigInt::operator= (BigInt&& right) noexcept {
 // is this == right?
 bool BigInt::operator== (const BigInt& right) const {
 	size_t my_size = this->num_digits();
-	if (this->positive == right.positive) { // signs are the same, ok...
-		if (my_size == right.num_digits()) { // hmm, same # of digits...
+	if (my_size == right.num_digits()) { // same # of digits, ok...
+		if (this->positive == right.positive) { // hmm, signs are the same too...
 			for (size_t i = 0; i < my_size; ++i) {
-				if (digits[i] != right.digits[i]) { // nevermind, we're different numbers
-					return false;
+				if (digits[i] != right.digits[i]) { 
+					return false; // nevermind, we have a different digit so we're different numbers
 				}
 			}
 			return true;
@@ -443,9 +465,13 @@ Bitset::Bitset(const BigInt& bi) {
 	}
 }
 
+Bitset::Bitset(const std::vector<byte>& bytes_in)
+	: bytes(bytes_in)
+{  }
+
 // returns the (which+1)th byte from num
 byte Bitset::get_byte(uint num, const uint which) {
-	if (which < 4) { // only 4 bytes in a uint
+	if (which < UCHARS_IN_UINT) { // only 4 bytes in a uint
 		uint shift = BITS_IN_BYTE * which;
 		uint mask = 0xFF << shift; // do we want bits 0-7, 8-15, 16-23, or 24-31?
 		num &= mask; // get rid of all bits we don't care about
@@ -454,7 +480,19 @@ byte Bitset::get_byte(uint num, const uint which) {
 
 	std::cout << "Error: requested byte #" << which + 1
 		<< " of " << num << ", which does not exist\n";
-	return -1;
+	exit(-1); return -1; // chill out compiler
+}
+
+bool Bitset::get_bit(byte b, const uint which) {
+	if (which < UCHAR_BYTES * BITS_IN_BYTE) {
+		byte mask = 1 << which;
+		b &= mask;
+		return (b >> which);
+	}
+
+	std::cout << "Error: requested bit #" << which + 1
+		<< " of " << b << ", which does not exist\n";
+	exit(-1); return 0; // chill out compiler
 }
 
 // get number of bytes currently in Bitset
@@ -464,7 +502,7 @@ size_t Bitset::num_bytes() const {
 
 // convert bitset to binary string
 std::string Bitset::to_string() const {
-	const int ASCII_ZERO = 48;
+	Timer<Milliseconds> t;
 	const size_t my_num_bytes = this->num_bytes();
 	std::string bit_str = "";
 	bit_str.reserve(my_num_bytes * BITS_IN_BYTE); // need one character in string for each bit in byte
@@ -473,7 +511,7 @@ std::string Bitset::to_string() const {
 	for (size_t i = 0; i < my_num_bytes; ++i) { // for each of my bytes,
 		byte byte_copy = bytes[i];
 		for (size_t j = 0; j < BITS_IN_BYTE; ++j) { // append '0' to string if last bit of byte_copy is 0, else append '1'
-			bit_str.push_back((char)(ASCII_ZERO + (byte_copy & mask)));
+			bit_str.push_back((char)('0' + (byte_copy & mask)));
 			byte_copy >>= 1;
 		}
 	}
@@ -490,3 +528,64 @@ std::string Bitset::to_string() const {
 
 	return bit_str;
 }
+
+// returns a bitset containing the binary-coded-decimal representation of *this
+//		implemented via double-dabble
+Bitset Bitset::to_bcd() const {
+	const size_t my_size = this->num_bytes();
+	const ulong my_size_bits = (ulong)my_size * BITS_IN_BYTE;
+	const ulong bcd_bits_needed = (my_size_bits + 4 * ((my_size_bits / 3) + (my_size_bits % 3 != 0)));
+	std::vector<byte> bcd_bytes((size_t)(bcd_bits_needed / BITS_IN_BYTE) + 1);
+
+	const uint shift_amt = (UCHAR_BYTES * BITS_IN_BYTE) - 1; // want to shift 1 over this amt to get MSB
+	uint bytes_to_check = 0; // we want to keep track of how many bytes have been filled in bcd representation
+	uint extra_forward_bytes = 0;
+	for (_long i = my_size - 1; i >= 0; --i) { // for each of my bytes
+		byte my_b = this->bytes[(size_t)i]; // grab a copy of current byte
+
+		ulong bit_iters = 0; // keep track of how many bits we've extracted from in this byte so we can shift new extracted bit down accordingly
+		for (byte mask = 1 << shift_amt; mask > 0; mask >>= 1) { // for each bit in current byte
+			byte insert_bit = (my_b & mask) >> (shift_amt - bit_iters); // grab bit to insert into bcd representation, shift it down to LSB
+
+			bool is_first = true; // want to keep track of how many times the first nibble gets 3 added to it when being 5, 6, or 7 (because a 1-bit "jumps" to the left, increasing space needed)
+			// dabble all nibbles in bcd representation so far
+			for (size_t j = bytes_to_check + extra_forward_bytes; j > 0; --j) { 
+				dabble(bcd_bytes[j], extra_forward_bytes, is_first);
+				is_first = false;
+			} dabble(bcd_bytes[0], extra_forward_bytes, is_first);
+
+			byte mask2 = 1 << (BITS_IN_BYTE - 1); // want to extract leftmost bit in byte
+			// left-shift entire current bcd representation
+			for (size_t j = bytes_to_check + extra_forward_bytes; j > 0; --j) { // for all bytes current bcd-representation
+				byte leftmost_bit = (bcd_bytes[j - 1] & mask2) >> (BITS_IN_BYTE - 1); // extract leftmost bit of right adjacent bcd byte
+				bcd_bytes[j] = (bcd_bytes[j] << 1) | leftmost_bit; // shift left current byte by 1, insert leftmost bit extracted from right adjacent byte
+			} bcd_bytes[0] = (bcd_bytes[0] << 1) | insert_bit; // shift/insert for 1st bcd byte
+			++bit_iters;
+		}
+		++bytes_to_check;
+	}
+
+	return Bitset(bcd_bytes);
+}
+
+void Bitset::dabble(byte& b, uint& count, bool first) { // add 3 to all nibbles in uchar that are greater than 4
+	if (b == 0) return;
+	uint nibble_iters = 0;
+	for (byte nibble_mask = 0xF; nibble_mask > 0; nibble_mask <<= BITS_IN_NIBBLE) { // for all nibbles in byte
+		byte nibble = (b & nibble_mask) >> (nibble_iters * BITS_IN_NIBBLE); // grab nibble, shift down to LSBs
+		if (nibble >= 5 && nibble <= 7 && first) ++count; // adding 3 to this nibble will cause a 1- bit to "jump" to the left (i.e. 0110 + 0011 = 1001), keep track of it
+		nibble += (nibble > 4) ? 3 : 0; // adjust nibble per the rules of double dabble algorithm (add 3 to digit if greater than 4)               ^
+		nibble <<= (nibble_iters * BITS_IN_NIBBLE); // shift nibble back up to initial position													   |
+		b = (b & ~nibble_mask) | nibble; // remove old nibble from b, insert new nibble															   |
+		++nibble_iters;
+	}
+}
+
+void Bitset::insert_bit(byte& b, bool bit, uint index) {
+	if (index < BITS_IN_BYTE - 1) {
+		byte clear_bit_mask = 1 << index;
+		byte insert_bit_mask = bit << index;
+		b = (b & clear_bit_mask) | insert_bit_mask;
+	}
+}
+
