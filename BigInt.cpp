@@ -100,7 +100,7 @@ std::string BigInt::to_bcd() const {
 	return "";
 }
 
-// get number of digits
+// get the list of digits
 std::vector<uint> BigInt::get_digits() const {
 	return this->digits;
 }
