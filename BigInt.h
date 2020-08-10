@@ -9,12 +9,13 @@
 #include "Timer.h"
 
 typedef unsigned char byte;
+typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long long ulong;
 typedef long long _long;
 
-const size_t UINT_BYTES = sizeof(uint);
 const size_t UCHAR_BYTES = sizeof(unsigned char);
+const size_t UINT_BYTES = sizeof(uint);
 const size_t ULONG_BYTES = sizeof(ulong);
 const size_t BITS_IN_NIBBLE = 4;
 const size_t BITS_IN_BYTE = 8;
@@ -26,6 +27,7 @@ enum class MultType {
 	KARATSUBA,
 	SCHONHAGE_STRASSEN
 };
+
 
 class BigInt {
 private:
@@ -58,6 +60,7 @@ public:
 	std::vector<bool> get_bits() const;
 	std::string to_string() const; // wip
 	std::string to_binary_string() const;
+	std::string to_bcd() const;
 	size_t num_digits() const;
 
 	// assignment operator overloads
@@ -95,11 +98,14 @@ public:
 	Bitset(const Bitset& other);
 	Bitset(Bitset&& other) noexcept;
 	Bitset(const BigInt& bi);
+	Bitset(const std::vector<byte>& bytes_in);
 
 	static byte get_byte(uint num, const uint which);
+	static bool get_bit(byte b, const uint which);
+	static void insert_bit(byte& b, bool bit, uint index);
+	static void dabble(byte& b, uint& count, bool first);
 
 	size_t num_bytes() const;
 	std::string to_string() const;
 	Bitset to_bcd() const;
 };
-
