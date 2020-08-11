@@ -55,38 +55,20 @@ template <typename T> void BigInt::init(T _num) {
 	}
 }
 
-// work in progress
-// for now, returns n-digit number in the form a1*(2^32)^0+a2*(2^32)^1+...+an*(2^32)^(n-1)
-std::string BigInt::to_string() const {
-	std::string return_str = (this->positive) ? "" : "-1 * (";
-	for (_long i = digits.size() - 1; i >= 0; --i) {
-		return_str += std::to_string(digits[(uint)i]) + " * " + std::to_string(BASE) + "^" + std::to_string(i);
-		if (i > 0) {
-			return_str += " + ";
-		}
-	}
-
-	if (!this->positive) {
-		return_str += ")";
-	}
-
-	return return_str;
-}
-
 // return binary string representation of BigInt
 std::string BigInt::to_binary_string() const {
 	std::string bin_str = "";
-	uint mask = 1 << (BITS_IN_UINT - 1);
-	bool still_leading_zeros = true;
-	for (_long i = this->num_digits() - 1; i >= 0; --i) {
-		uint digit_copy = this->digits[i];
-		for (size_t j = 0; j < BITS_IN_UINT; ++j) {
-			char bit = (char)('0' + ((digit_copy & mask) >> (BITS_IN_UINT - 1)));
+	uint mask = 1 << (BITS_IN_UINT - 1); // mask to extract leftmost bit (MSB) of uint digit
+	bool still_leading_zeros = true; // want to flag when we are done with leading zeros so we can exclude them
+	for (_long i = this->num_digits() - 1; i >= 0; --i) { // for each digit in this BigInt
+		uint digit_copy = this->digits[(size_t)i];
+		for (size_t j = 0; j < BITS_IN_UINT; ++j) { // for each bit in this uint digit
+			char bit = (char)('0' + ((digit_copy & mask) >> (BITS_IN_UINT - 1))); // extract bit and convert to character representation
 			if (!still_leading_zeros) {
-				bin_str.push_back(bit);
+				bin_str.push_back(bit); // append bit to string if we're done with leading zeros
 			}
 			else if (bit == '1') {
-				bin_str.push_back(bit);
+				bin_str.push_back(bit); // append first non-zero bit and flag that leading zeros are passed
 				still_leading_zeros = false;
 			}
 			digit_copy <<= 1;
@@ -95,12 +77,73 @@ std::string BigInt::to_binary_string() const {
 	return bin_str;
 }
 
-std::string BigInt::to_bcd() const {
-
-	return "";
+void dabble(uint& digit) {
+	if (digit == 0) return;
+	uint nibble_iters = 0; // want to keep track of which nibble we are on to shift down accordingly
+	for (uint nibble_mask = 0xF; nibble_mask > 0; nibble_mask <<= BITS_IN_NIBBLE) { // for each nibble in this uint digit
+		uint nibble = (digit & nibble_mask) >> nibble_iters; // extract it from digit, shift down to four LSBs
+		if (nibble > 4) {
+			nibble += 3; // adjust nibble per rules of double dabble algorithm
+			digit = (digit & ~nibble_mask) | (nibble << nibble_iters); // re-insert modified nibble into uint digit at initial position
+		}
+		nibble_iters += BITS_IN_NIBBLE;
+	}
 }
 
-// get the list of digits
+std::string BigInt::to_string() const {
+	// an n-bit binary number has at most d = nlog10(2) + 1 decimal digits, so reserve 4d bits for bcd representation
+	const size_t num_digits = this->num_digits();
+	std::vector<uint> bcd((BITS_IN_NIBBLE * (log10(2) * num_digits * BITS_IN_UINT + 1)) / BITS_IN_UINT + 1, 0);
+
+	// perform double-dabble algorithm
+	for (_long i = num_digits - 1; i >= 0; --i) { // for each uint digit in this BigInt's digits (going from MSD -> LSD)
+		uint digit = this->digits[i];
+
+		uint bit_iters = 0; // want to keep track of how many bits we've iterated through on current uint digit to shift down to LSB accordingly after masking
+		for (uint mask = 1 << (BITS_IN_UINT - 1); mask > 0; mask >>= 1) { // for each bit in digit (going from MSB -> LSB)
+			uint insert_bit = (digit & mask) >> (BITS_IN_UINT - 1 - bit_iters++); // grab bit, shift down to LSB 
+
+			for (_long j = bcd.size() - 1; j >= 0; --j) { // for each bcd byte
+				if (bcd[j] != 0) { 
+					dabble(bcd[j]); // dabble all nibbles in uint digit if digit is nonzero
+				}
+			}
+
+			uint lmb_mask = 1 << (BITS_IN_UINT - 1); // mask for getting the leftmost bit of a uint digit
+			for (_long k = bcd.size() - 1; k >= 0; --k) { // for each bcd uint digit
+				if (k == 0 || bcd[k - 1] != 0) {
+					uint lmb = (k > 0) ? (bcd[k - 1] & lmb_mask) >> (BITS_IN_UINT - 1) : insert_bit; // grab leftmost bit from right adjacent uint digit OR use insert_bit from non-bcd because we're at the ones column
+					bcd[k] = (bcd[k] << 1) | lmb; // insert the desired bit as LSB
+				}
+			}
+		}
+	}
+
+	// build decimal string from bcd digit vector
+	const char nibble_map[10] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }; // just makes life a little easier
+	std::string bcd_str = "";
+	bool leading_zeros = true; // want to flag when leading zeros end so they can be excluded
+	for (_long i = bcd.size() - 1; i >= 0; --i) { // for each bcd uint digit 
+		uint nibble_iters = 0; // want to keep track of how many nibbles have been iterated through in current digit so we can shift accordingly
+		for (uint mask = 0xF << (BITS_IN_UINT - BITS_IN_NIBBLE); mask > 0; mask >>= BITS_IN_NIBBLE) { // for every nibble in this uint digit (going from MSN -> LSN)
+			char digit = nibble_map[(bcd[i] & mask) >> ((BITS_IN_UINT - BITS_IN_NIBBLE) - nibble_iters)]; // get nibble, shift down to the four LSBs, use as index for nibble map to get digit character
+			if (!leading_zeros) {
+				bcd_str.push_back(digit); // append the digit if there are no more leading zeros
+			}
+			else {
+				if (digit != '0') {
+					bcd_str.push_back(digit); // append the first non-zero digit and flag that leading zeros are done
+					leading_zeros = false;
+				}
+			}
+			nibble_iters += BITS_IN_NIBBLE;
+		}
+	}
+
+	return bcd_str;
+}
+
+// get list of digits
 std::vector<uint> BigInt::get_digits() const {
 	return this->digits;
 }
@@ -409,183 +452,3 @@ BigInt& BigInt::operator+= (const BigInt& right) {
 	*this = *this + right;
 	return *this;
 }
-
-
-
-
-
-
-
-/* *************************************************** 
-   *              BITSET CLASS METHODS               * 
-   ***************************************************  */
-
-// default constructor
-Bitset::Bitset()
-	: bytes(std::vector<byte>(1, 0))
-{
-	bytes.reserve(BS_DEFAULT_BYTES);
-}
-
-// construct bitset with enough memory allocated for size bytes
-Bitset::Bitset(const size_t size)
-	: bytes(std::vector<byte>(1, 0))
-{
-	bytes.reserve(size);
-}
-
-// copy constructor
-Bitset::Bitset(const Bitset& other)
-	: bytes(other.bytes)
-{  }
-
-// move constructor
-Bitset::Bitset(Bitset&& other) noexcept
-	: bytes(std::move(other.bytes))
-{  }
-
-// construct Bitset from BigInt
-Bitset::Bitset(const BigInt& bi) {
-	const size_t bi_num_digits = bi.num_digits();
-	bytes = std::vector<byte>(bi_num_digits * UCHARS_IN_UINT); // each uint is 4 bytes
-
-	std::vector<uint> bi_digits = bi.get_digits();
-	for (size_t i = 0; i < bi_num_digits; ++i) { // for each uint digit in bi,
-		for (size_t j = 0; j < UCHARS_IN_UINT; ++j) { // for each byte in uint digit
-			bytes[(i * UCHARS_IN_UINT) + j] = Bitset::get_byte(bi_digits[i], j); // get (j+1)th byte from uint digit
-		}
-	}
-
-	// remove 0-bytes
-	for (size_t i = bytes.size() - 1; i > 0; --i) {
-		if (bytes[i] != 0) {
-			break;
-		}
-		bytes.pop_back();
-	}
-}
-
-Bitset::Bitset(const std::vector<byte>& bytes_in)
-	: bytes(bytes_in)
-{  }
-
-// returns the (which+1)th byte from num
-byte Bitset::get_byte(uint num, const uint which) {
-	if (which < UCHARS_IN_UINT) { // only 4 bytes in a uint
-		uint shift = BITS_IN_BYTE * which;
-		uint mask = 0xFF << shift; // do we want bits 0-7, 8-15, 16-23, or 24-31?
-		num &= mask; // get rid of all bits we don't care about
-		return (num >> shift); // shift relevant bits back down to end of number to store in byte and return
-	}
-
-	std::cout << "Error: requested byte #" << which + 1
-		<< " of " << num << ", which does not exist\n";
-	exit(-1); return -1; // chill out compiler
-}
-
-bool Bitset::get_bit(byte b, const uint which) {
-	if (which < UCHAR_BYTES * BITS_IN_BYTE) {
-		byte mask = 1 << which;
-		b &= mask;
-		return (b >> which);
-	}
-
-	std::cout << "Error: requested bit #" << which + 1
-		<< " of " << b << ", which does not exist\n";
-	exit(-1); return 0; // return 0 to appease compiler
-}
-
-// get number of bytes currently in Bitset
-size_t Bitset::num_bytes() const {
-	return bytes.size();
-}
-
-// convert bitset to binary string
-std::string Bitset::to_string() const {
-	Timer<Milliseconds> t;
-	const size_t my_num_bytes = this->num_bytes();
-	std::string bit_str = "";
-	bit_str.reserve(my_num_bytes * BITS_IN_BYTE); // need one character in string for each bit in byte
-
-	uint mask = 1;
-	for (size_t i = 0; i < my_num_bytes; ++i) { // for each of my bytes,
-		byte byte_copy = bytes[i];
-		for (size_t j = 0; j < BITS_IN_BYTE; ++j) { // append '0' to string if last bit of byte_copy is 0, else append '1'
-			bit_str.push_back((char)('0' + (byte_copy & mask)));
-			byte_copy >>= 1;
-		}
-	}
-	std::reverse(bit_str.begin(), bit_str.end()); // bit string was built backwards, reverse it
-
-	// remove extraneous 0 bits from string
-	size_t zero_count = 0;
-	for (zero_count; zero_count < bit_str.length(); ++zero_count) {
-		if (bit_str[zero_count] != '0') {
-			break;
-		}
-	}
-	bit_str.erase(0, zero_count);
-
-	return bit_str;
-}
-
-// returns a bitset containing the binary-coded-decimal representation of *this
-//		implemented via double-dabble
-Bitset Bitset::to_bcd() const {
-	const size_t my_size = this->num_bytes();
-	const ulong my_size_bits = (ulong)my_size * BITS_IN_BYTE;
-	const ulong bcd_bits_needed = (my_size_bits + 4 * ((my_size_bits / 3) + (my_size_bits % 3 != 0)));
-	std::vector<byte> bcd_bytes((size_t)(bcd_bits_needed / BITS_IN_BYTE) + 1);
-
-	const uint shift_amt = (UCHAR_BYTES * BITS_IN_BYTE) - 1; // want to shift 1 over this amt to get MSB
-	uint bytes_to_check = 0; // we want to keep track of how many bytes have been filled in bcd representation
-	uint extra_forward_bytes = 0;
-	for (_long i = my_size - 1; i >= 0; --i) { // for each of my bytes
-		byte my_b = this->bytes[(size_t)i]; // grab a copy of current byte
-
-		ulong bit_iters = 0; // keep track of how many bits we've extracted from in this byte so we can shift new extracted bit down accordingly
-		for (byte mask = 1 << shift_amt; mask > 0; mask >>= 1) { // for each bit in current byte
-			byte insert_bit = (my_b & mask) >> (shift_amt - bit_iters); // grab bit to insert into bcd representation, shift it down to LSB
-
-			bool is_first = true; // want to keep track of how many times the first nibble gets 3 added to it when being 5, 6, or 7 (because a 1-bit "jumps" to the left, increasing space needed)
-			// dabble all nibbles in bcd representation so far
-			for (size_t j = bytes_to_check + extra_forward_bytes; j > 0; --j) { 
-				dabble(bcd_bytes[j], extra_forward_bytes, is_first);
-				is_first = false;
-			} dabble(bcd_bytes[0], extra_forward_bytes, is_first);
-
-			byte mask2 = 1 << (BITS_IN_BYTE - 1); // want to extract leftmost bit in byte
-			// left-shift entire current bcd representation
-			for (size_t j = bytes_to_check + extra_forward_bytes; j > 0; --j) { // for all bytes current bcd-representation
-				byte leftmost_bit = (bcd_bytes[j - 1] & mask2) >> (BITS_IN_BYTE - 1); // extract leftmost bit of right adjacent bcd byte
-				bcd_bytes[j] = (bcd_bytes[j] << 1) | leftmost_bit; // shift left current byte by 1, insert leftmost bit extracted from right adjacent byte
-			} bcd_bytes[0] = (bcd_bytes[0] << 1) | insert_bit; // shift/insert for 1st bcd byte
-			++bit_iters;
-		}
-		++bytes_to_check;
-	}
-
-	return Bitset(bcd_bytes);
-}
-
-void Bitset::dabble(byte& b, uint& count, bool first) { // add 3 to all nibbles in uchar that are greater than 4
-	if (b == 0) return;
-	uint nibble_iters = 0;
-	for (byte nibble_mask = 0xF; nibble_mask > 0; nibble_mask <<= BITS_IN_NIBBLE) { // for all nibbles in byte
-		byte nibble = (b & nibble_mask) >> (nibble_iters * BITS_IN_NIBBLE); // grab nibble, shift down to LSBs
-		if (nibble >= 5 && nibble <= 7 && first) ++count; // adding 3 to this nibble will cause a 1- bit to "jump" to the left (i.e. 0110 + 0011 = 1001), keep track of it
-		nibble += (nibble > 4) ? 3 : 0; // adjust nibble per the rules of double dabble algorithm (add 3 to digit if greater than 4)               ^
-		nibble <<= (nibble_iters * BITS_IN_NIBBLE); // shift nibble back up to initial position													   |
-		b = (b & ~nibble_mask) | nibble; // remove old nibble from b, insert new nibble															   |
-		++nibble_iters;
-	}
-}
-
-void Bitset::insert_bit(byte& b, bool bit, uint index) {
-	if (index < BITS_IN_BYTE - 1) {
-		byte clear_bit_mask = 1 << index;
-		byte insert_bit_mask = bit << index;
-		b = (b & clear_bit_mask) | insert_bit_mask;
-	}
-}
-

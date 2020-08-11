@@ -60,16 +60,15 @@ public:
 	std::vector<bool> get_bits() const;
 	std::string to_string() const; // wip
 	std::string to_binary_string() const;
-	std::string to_bcd() const;
 	size_t num_digits() const;
 
 	// assignment operator overloads
 	BigInt& operator= (const BigInt& right);
 	BigInt& operator= (BigInt&& right) noexcept;
 	BigInt& operator+= (const BigInt& right);
-	BigInt& operator-= (const BigInt& right);
-	BigInt& operator*= (const BigInt& right);
-	BigInt& operator/= (const BigInt& right);
+	BigInt& operator-= (const BigInt& right); // todo
+	BigInt& operator*= (const BigInt& right); // todo
+	BigInt& operator/= (const BigInt& right); // todo
 
 	// comparison operator overloads
 	bool operator== (const BigInt& right) const;
@@ -82,30 +81,5 @@ public:
 	BigInt operator+ (const BigInt& right) const;
 	BigInt operator- (const BigInt& right) const;
 	BigInt operator* (const BigInt& right) const;
-	BigInt operator/ (const BigInt& right) const;
-};
-
-
-// BITSET
-class Bitset {
-private:
-	static const size_t BS_DEFAULT_BYTES = 8;
-	std::vector<byte> bytes;
-
-public:
-	Bitset();
-	Bitset(const size_t size);
-	Bitset(const Bitset& other);
-	Bitset(Bitset&& other) noexcept;
-	Bitset(const BigInt& bi);
-	Bitset(const std::vector<byte>& bytes_in);
-
-	static byte get_byte(uint num, const uint which);
-	static bool get_bit(byte b, const uint which);
-	static void insert_bit(byte& b, bool bit, uint index);
-	static void dabble(byte& b, uint& count, bool first);
-
-	size_t num_bytes() const;
-	std::string to_string() const;
-	Bitset to_bcd() const;
+	BigInt operator/ (const BigInt& right) const; // todo
 };
