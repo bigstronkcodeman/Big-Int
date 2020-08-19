@@ -78,7 +78,6 @@ std::string BigInt::to_binary_string() const {
 }
 
 void dabble(uint& digit) {
-	if (digit == 0) return;
 	uint nibble_iters = 0; // want to keep track of which nibble we are on to shift down accordingly
 	for (uint nibble_mask = 0xF; nibble_mask > 0; nibble_mask <<= BITS_IN_NIBBLE) { // for each nibble in this uint digit
 		uint nibble = (digit & nibble_mask) >> nibble_iters; // extract it from digit, shift down to four LSBs
