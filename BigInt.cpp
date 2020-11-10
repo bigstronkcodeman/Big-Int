@@ -313,7 +313,7 @@ BigInt BigInt::long_mult(const BigInt& a, const BigInt& b) {
 	return result;
 }
 
-// performs long multiplication (gradeschool multiplication) on two BigInts a and b, complexity O(n^(log(3)))
+// performs karatsuba multiplication (fast multiplication) on two BigInts a and b, complexity O(n^(log(3)))
 BigInt BigInt::karatsuba_mult(const BigInt& x, const BigInt& y) {
 	const size_t x_n = x.digits.size();
 	const size_t y_n = y.digits.size(); 
