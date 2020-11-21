@@ -21,21 +21,14 @@ const size_t BITS_IN_NIBBLE = 4;
 const size_t BITS_IN_BYTE = 8;
 const size_t BITS_IN_UINT = UINT_BYTES * BITS_IN_BYTE;
 const size_t UCHARS_IN_UINT = UINT_BYTES / UCHAR_BYTES;
-
-enum class MultType {
-	LONG,
-	KARATSUBA,
-	SCHONHAGE_STRASSEN
-};
-
+const uint KARATSUBA_CUTOFF = 50;
 
 class BigInt {
 private:
-	static const uint _UINT_MAX = std::numeric_limits<uint>::max();
-	static const ulong BASE = _UINT_MAX + (ulong)1;
-	static const MultType MULT_MODE = MultType::LONG;
 	std::vector<uint> digits;
 	bool positive;
+	static const uint _UINT_MAX = std::numeric_limits<uint>::max();
+	static const ulong BASE = _UINT_MAX + (ulong)1;
 
 	BigInt(const std::vector<uint>& digits_in, const bool positive_in);
 
@@ -43,8 +36,8 @@ private:
 	static BigInt add_like_signs(const BigInt& a, const BigInt& b);
 	static BigInt add_diff_signs(const BigInt& a, const BigInt& b);
 	static BigInt long_mult(const BigInt& a, const BigInt& b);
-	static BigInt karatsuba_mult(const BigInt& a, const BigInt& b);
-	static BigInt schonhage_strassen_mult(const BigInt& a, const BigInt& b);
+	static BigInt karatsuba_mult(const BigInt& a, const BigInt& b); // todo
+	static BigInt schonhage_strassen_mult(const BigInt& a, const BigInt& b); // todo
 
 public:
 	BigInt();
@@ -58,7 +51,8 @@ public:
 	std::vector<uint> get_digits() const;
 	static std::vector<bool> get_bits(uint num, bool pad_32 = false);
 	std::vector<bool> get_bits() const;
-	std::string to_string() const; // wip
+	std::string to_string() const;
+	std::string to_string2() const;
 	std::string to_binary_string() const;
 	size_t num_digits() const;
 
