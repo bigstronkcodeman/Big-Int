@@ -13,7 +13,7 @@ int main() {
 	return 0;
 }
 
-#include "BigInt.h"
+//#include "BigInt.h"
 //#include "Timer.h"
 //
 //void print_base_sum_form(const BigInt& n) {
