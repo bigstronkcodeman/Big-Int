@@ -27,7 +27,7 @@ const uint KARATSUBA_CUTOFF = 50;
 const uint BIGGEST_POW10 = (uint)1000000000; // max power of 10 we can store in 32 bits
 const uint POW10_DIGITS = log10(BIGGEST_POW10);
 
-class BigInt {
+class BigInt { 
 private:
 	std::vector<uint> digits;
 	bool positive;
