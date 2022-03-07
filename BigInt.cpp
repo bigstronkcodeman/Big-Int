@@ -7,7 +7,7 @@
 // Default constructor
 BigInt::BigInt() : digits(std::vector<uint>(1, 0)), positive(true) {
     digits.reserve(8);
-}
+} 
 
 // Copy constructor
 BigInt::BigInt(const BigInt &other)
