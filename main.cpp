@@ -8,7 +8,6 @@ int main() {
 	std::cout << "fib[1]: " << b2.to_string() << '\n';
 	for (int i = 2; i <= 100000; ++i) {
 		std::cout << "fib[" << i << "]: " << b3.to_string() << '\n';
-		std::cout << "fib[" << i << "] generated\n";
 		b1 = b2;
 		b2 = b3;
 		b3 = b1 + b2;
